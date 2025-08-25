@@ -35,7 +35,7 @@ Create a `.env` file in the backend directory:
 
 ```env
 PORT=5000
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/repostar
+MONGODB_URI=
 NODE_ENV=development
 CLERK_SECRET_KEY=sk_test_your_clerk_secret_key
 ```
