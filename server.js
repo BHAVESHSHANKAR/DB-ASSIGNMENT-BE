@@ -11,7 +11,17 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'https://db-assignment-fe.vercel.app', // Replace with your actual frontend URL
+        /\.vercel\.app$/
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Clerk authentication middleware
@@ -79,13 +89,13 @@ app.post('/api/search', requireAuth, async (req, res) => {
         const { keyword, page = 1, perPage = 10 } = req.body;
         const userId = req.auth.userId;
 
-        console.log('User ID from Clerk:', userId);
+        console.log('Search request - User ID:', userId, 'Keyword:', keyword);
 
         if (!keyword) {
             return res.status(400).json({ error: 'Keyword is required' });
         }
 
-        // Fetch from GitHub API
+        // Fetch from GitHub API with better error handling
         const githubResponse = await axios.get('https://api.github.com/search/repositories', {
             params: {
                 q: keyword,
@@ -93,6 +103,10 @@ app.post('/api/search', requireAuth, async (req, res) => {
                 order: 'desc',
                 page: page,
                 per_page: perPage
+            },
+            timeout: 10000,
+            headers: {
+                'User-Agent': 'RepoStar-App'
             }
         });
 
@@ -119,7 +133,20 @@ app.post('/api/search', requireAuth, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Search error:', error);
+        console.error('Search error details:', {
+            message: error.message,
+            status: error.response?.status,
+            data: error.response?.data,
+            config: error.config
+        });
+        
+        if (error.response?.status === 403) {
+            return res.status(403).json({
+                error: 'GitHub API rate limit exceeded',
+                details: 'Please try again later'
+            });
+        }
+        
         res.status(500).json({
             error: 'Failed to search repositories',
             details: error.response?.data?.message || error.message
